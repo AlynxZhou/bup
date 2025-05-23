@@ -1,5 +1,6 @@
 {
   "docDir": "docs",
+  "userDir": "users",
   "baseURL": "YOUR SITE BASE URL",
   "rootDir": "YOUR SITE ROOT DIR",
   "uids": []

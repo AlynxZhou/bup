@@ -1,5 +1,4 @@
 import {Command} from "commander";
-import build from "./build.js";
 import {getVersion} from "./utils.js";
 
 const command = new Command();
