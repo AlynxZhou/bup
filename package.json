@@ -1,0 +1,33 @@
+{
+  "name": "bup",
+  "version": "0.0.1",
+  "description": "Bilibili Update Checker",
+  "type": "module",
+  "bin": {
+    "bup": "bin/bup.js"
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "check": "node bin/bup.js check",
+    "build": "node bin/bup.js build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Bilibili"
+  ],
+  "homepage": "https://github.com/AlynxZhou/bup#readme",
+  "bugs": {
+    "url": "https://github.com/AlynxZhou/bup/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlynxZhou/bup.git"
+  },
+  "license": "Apache-2.0",
+  "author": "Alynx Zhou <alynx.zhou@gmail.com> (https://alynx.one/)",
+  "dependencies": {
+    "commander": "^14.0.0"
+  }
+}
