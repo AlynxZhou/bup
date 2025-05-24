@@ -1,0 +1,116 @@
+html {
+  /* Scrollbar for document. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar) var(--color-scrollbar-background);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection, ::-moz-selection {
+  color: var(--color-selection-font);
+  background: var(--color-selection-background);
+}
+
+::-webkit-scrollbar {
+  width: 0.5em;
+  height: 0.5em;
+  background: var(--color-scrollbar-background);
+}
+
+::-webkit-scrollbar-track {
+  background: 0 0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar);
+  border-radius: 0.25em;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--color-scrollbar-corner);
+}
+
+::-webkit-scrollbar-resizer {
+  background: var(--color-scrollbar-resizer);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  /* Never use `space-between` here, header and main cannot be splitted. */
+  justify-content: flex-start;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  /* Take the whole browser window, this is required for Holy Grail. */
+  min-height: 100vh;
+  overflow: auto;
+  scroll-behavior: smooth;
+}
+
+ol, ul {
+  padding-left: 2em;
+}
+
+div.container {
+  width: 80%;
+  height: 100%;
+  padding: 0;
+  margin: 0 auto;
+}
+
+div.title {
+  font-size: 2rem;
+  padding: 1em;
+}
+
+div.content {
+  font-size: 3rem;
+  padding: 1em;
+}
+
+img.avatar {
+  width: 2em;
+  border-radius: 50%;
+}
+
+a.video {
+  display: flex;
+  flex-direction: row;
+  /* Never use `space-between` here, header and main cannot be splitted. */
+  justify-content: flex-start;
+  align-items: stretch;
+  width: 100%;
+}
+
+div.video-thumb {
+  flex: 0 0 auto;
+}
+
+div.video-thumb img {
+  width: 5em;
+}
+
+div.video-info {
+  flex: 1 1 auto;
+  font-size: 2rem;
+  padding: 1em;
+}
+
+div.video-title {
+  padding: 1em 0;
+}
+
+div.video-created {
+  font-size: 1rem;
+}
+
+div.info {
+  padding: 1em;
+}

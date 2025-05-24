@@ -1,5 +1,5 @@
 #!/usr/bin/env node
 
-import bup from "../bup/index.js";
+import main from "../bup/index.js";
 
-bup(process.argv);
+main(process.argv);

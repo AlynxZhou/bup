@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
+import * as http from "node:http";
 import * as https from "node:https";
 
 const pkgDir = path.resolve(
@@ -87,7 +88,8 @@ const get = (url, headers = {}) => {
     opts["headers"][k.toLowerCase()] = v;
   }
   return new Promise((resolve, reject) => {
-    const req = https.request(url, opts, (res) => {
+    const h = new URL(url).protocol === "https:" ? https : http;
+    const req = h.request(url, opts, (res) => {
       const chunks = [];
       res.on("error", reject);
       res.on("data", (chunk) => {
@@ -123,7 +125,8 @@ const post = (url, body, headers = {}) => {
     opts["headers"]["content-length"] = `${Buffer.byteLength(body)}`;
   }
   return new Promise((resolve, reject) => {
-    const req = https.request(url, opts, (res) => {
+    const h = new URL(url).protocol === "https:" ? https : http;
+    const req = h.request(url, opts, (res) => {
       const chunks = [];
       res.on("error", reject);
       res.on("data", (chunk) => {

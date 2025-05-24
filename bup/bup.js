@@ -6,6 +6,7 @@ import Logger from "./logger.js";
 import {
   loadJSON,
   saveJSON,
+  get,
   getJSON,
   getRandomSample,
   getPathFn,
@@ -13,17 +14,7 @@ import {
   getVersion
 } from "./utils.js";
 
-let logger = new Logger({"debug": false});
-
-const uids = [
-  "521444",
-  "15268429"
-];
-
-const docDir = "docs";
-const userDir = "users";
-const baseURL = "https://c4boom.ismyonly.one";
-const rootDir = "/";
+let logger = null;
 
 // See <https://github.com/Nemo2011/bilibili-api/pull/680/files>.
 // 一个验证有没有用户操作的玩意，似乎随便丢点字符给他就过了。
@@ -83,7 +74,9 @@ const encodeWBI = (params, img, sub) => {
   params.sort();
   logger.debug(`${params.toString()}`);
 
-  const wbi = crypto.createHash("md5").update(`${params.toString()}${mixinKey}`).digest("hex");
+  const wbi = crypto.createHash("md5")
+	.update(`${params.toString()}${mixinKey}`)
+	.digest("hex");
 
   return `${params.toString()}&w_rid=${wbi}`;
 };
@@ -146,26 +139,33 @@ const clean = async (uids, docDir, userDir) => {
   const removed = subDirs.filter((d) => {
     return !uids.includes(d);
   });
-  if (removed.length !== 0) {
-    logger.log(`Removing unused dir for ${removed.join(", ")}.`);
-    await Promise.all(removed.map((d) => {
-      return fsp.rm(path.join(fullUserDir, d), {"recursive": true});
-    }));
+  if (removed.length === 0) {
+    return;
   }
+  logger.log(`Removing unused dir for ${removed.join(", ")}.`);
+  await Promise.all(removed.map((d) => {
+    return fsp.rm(path.join(fullUserDir, d), {"recursive": true});
+  }));
 };
 
-const makeMetadata = (user, videos) => {
+const makeMetadata = (user, videos, userDir) => {
+  const uid = `${user["mid"]}`;
+  const userPath = path.join(userDir, uid);
   return {
-    "uid": `${user["mid"]}`,
+    "uid": uid,
     "name": user["name"],
-    "avatar": user["face"],
-    "videos": videos.slice(0, 3).map((video) => {
+    "path": userPath,
+    // 目前至少可以假设叔叔一定会给我们 JPG。
+    "avatar": path.join(userPath, "avatar.jpg"),
+    "avatarURL": user["face"],
+    "videos": videos.slice(0, 3).map((video, i) => {
       return {
 	"bvid": video["bvid"],
 	"title": video["title"],
-        // Bilibili returns UNIX timestamp which is in seconds.
+        // 叔叔返回的是 UNIX 时间戳，单位是秒，但 JS 的 Date 喜欢毫秒。
         "created": video["created"] * 1000,
-	"thumb": video["pic"]
+	"thumb": path.join(userPath, `${i}-thumb.jpg`),
+	"thumbURL": video["pic"]
       };
     })
   };
@@ -173,17 +173,19 @@ const makeMetadata = (user, videos) => {
 
 const check = async (uids, docDir, userDir) => {
   const fullUserDir = path.join(docDir, userDir);
-  return (await Promise.all(uids.map(async (uid) => {
+  const results = await Promise.all(uids.map(async (uid) => {
     let newMD = null;
     try {
       const user = await getUser(uid);
       const videos = await getVideos(uid);
-      newMD = makeMetadata(user, videos);
+      newMD = makeMetadata(user, videos, userDir);
     } catch (error) {
+      // 爬取更新失败的话就假装无事发生。
       logger.error(error);
       return null;
     }
 
+    // UP 的最新视频变了，或者 UP 改名了，或者我们之前没给这个 UP 建档，都视为有更新。
     let updated = false;
     try {
       const md = await loadJSON(path.join(fullUserDir, uid, "index.json"));
@@ -196,12 +198,14 @@ const check = async (uids, docDir, userDir) => {
     }
 
     return updated ? newMD : null;
-  }))).filter((o) => {
+  }));
+  // 当然是只处理有更新的。
+  return results.filter((o) => {
     return o != null;
   });
 };
 
-const renderPage = (docPath, md, getPath, getURL) => {
+const renderUserPage = (docPath, md, getPath, getURL) => {
   const html = [];
   html.push(
     "<!DOCTYPE html>\n",
@@ -215,12 +219,12 @@ const renderPage = (docPath, md, getPath, getURL) => {
   // Open Graph.
   html.push(
     "    <meta property=\"og:site_name\" content=\"BUp\">\n",
-    `    <meta property="og:title" content="${md["name"]} - BUp>\n`,
+    `    <meta property="og:title" content="${md["name"]} - BUp">\n`,
     "    <meta property=\"og:type\" content=\"website\">\n",
     `    <meta property="og:url" content="${getURL(docPath)}">\n`
   );
   html.push(
-    `    <meta property="og:image" content="${md["avatar"]}">\n`
+    `    <meta property="og:image" content="${getPath(md["avatar"])}">\n`
   );
   html.push(
     `    <meta property="og:description" content="${md["name"]} - BUp">\n`
@@ -245,7 +249,7 @@ const renderPage = (docPath, md, getPath, getURL) => {
   );
   html.push(
     "        <div class=\"title\" id=\"title\">\n",
-    `          <p>亲爱的 <img class="avatar" src="${md["avatar"]}"> <a target="_blank" rel="external nofollow noreferrer noopener" href="https://space.bilibili.com/${md["uid"]}">${md["name"]}</a></p>\n`,
+    `          <div>亲爱的 <img class="avatar" src="${getPath(md["avatar"])}"> <a target="_blank" rel="external nofollow noreferrer noopener" href="https://space.bilibili.com/${md["uid"]}">${md["name"]}</a>：</div>\n`,
     "        </div>\n"
   );
   const formatter = new Intl.DateTimeFormat("zh-Hans", {
@@ -269,15 +273,15 @@ const renderPage = (docPath, md, getPath, getURL) => {
     "      </header>\n",
     "      <main>\n",
     "        <div class=\"content\" id=\"content\">\n",
-    "          <p>距离您上次更新视频已经过去 <span id=\"delta\"></span> 了。</p>\n",
-    "          <p>您上次的投稿是：</p>\n",
+    "          <div>距离您上次更新视频已经过去 <span id=\"delta\"></span> 了。</div>\n",
+    "          <div>您上次的投稿是：</div>\n",
     `          <a class="video" target="_blank" rel="external nofollow noreferrer noopener" href="https://www.bilibili.com/video/${md["videos"][0]["bvid"]}">\n`,
     "            <div class=\"video-thumb\">\n",
-    `              <img src="${md["videos"][0]["thumb"]}">\n`,
+    `              <img src="${getPath(md["videos"][0]["thumb"])}">\n`,
     "            </div>\n",
     "            <div class=\"video-info\">\n",
-    `              <p class="video-title">${md["videos"][0]["title"]}</p>\n`,
-    `              <p class="video-created">${obj["year"]}-${obj["month"]}-${obj["day"]} ${obj["hour"]}:${obj["minute"]}:${obj["second"]}</p>\n`,
+    `              <div class="video-title">${md["videos"][0]["title"]}</div>\n`,
+    `              <div class="video-created">${obj["year"]}-${obj["month"]}-${obj["day"]} ${obj["hour"]}:${obj["minute"]}:${obj["second"]}</div>\n`,
     "            </div>\n",
     "          </a>\n",
     "        </div>\n"
@@ -287,9 +291,9 @@ const renderPage = (docPath, md, getPath, getURL) => {
     "      <footer>\n",
   );
   html.push(
-    "       <div class=\"info\" id=\"info\">\n",
-    `         <a href="${getPath()}>当前页面链接</a>\n`,
-    "       </div>\n"
+    "        <div class=\"info\" id=\"info\">\n",
+    `          <a href="${getPath(docPath)}">当前页面链接</a>\n`,
+    "        </div>\n"
   );
   html.push(
     "     </footer>\n",
@@ -302,37 +306,158 @@ const renderPage = (docPath, md, getPath, getURL) => {
   return html.join("");
 };
 
-const writeUserPage = async (md, docDir, userDir, getPath, getURL) => {
-  const docPath = path.join(userDir, md["uid"], "index.html");
-  const filePath = path.join(docDir, docPath);
+const renderIndexPage = (docPath, mds, getPath, getURL) => {
+  const html = [];
+  html.push(
+    "<!DOCTYPE html>\n",
+    "<html lang=\"zh-Hans\">\n",
+    "  <head>\n",
+    "    <meta charset=\"utf-8\">\n",
+    "    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n",
+    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=10\">\n"
+  );
+
+  // Open Graph.
+  html.push(
+    "    <meta property=\"og:site_name\" content=\"BUp\">\n",
+    "    <meta property=\"og:title\" content=\"BUp\">\n",
+    "    <meta property=\"og:type\" content=\"website\">\n",
+    `    <meta property="og:url" content="${getURL(docPath)}">\n`
+  );
+  html.push(
+    "    <meta property=\"og:description\" content=\"BUp\">\n"
+  );
+  html.push(
+    `    <link rel="stylesheet" type="text/css" href="${getPath("css/normalize.css")}">\n`,
+    `    <link rel="stylesheet" type="text/css" href="${getPath("css/index.css")}">\n`,
+    `    <script type="text/javascript" src="${getPath("js/index.js")}"></script>\n`,
+    "    <title>BUp</title>\n",
+    "  </head>\n",
+    "  <body>\n",
+    "    <div class=\"container\">\n",
+    "      <header>\n"
+  );
+  html.push(
+    "        <div class=\"title\" id=\"title\">\n",
+    "          <h1>BUp</h1>\n",
+    "        </div>\n"
+  );
+  html.push(
+    "      </header>\n",
+    "      <main>\n",
+    "        <div class=\"content\" id=\"content\">\n",
+    "          <ul>\n"
+  );
+  for (const md of mds) {
+    html.push(
+      `            <li><a href=${getPath(md["path"])}>${md["name"]}</a></li>\n`
+    );
+  }
+  html.push(
+    "          </ul>\n",
+    "        </div>\n"
+  );
+  html.push(
+    "      </main>\n",
+    "      <footer>\n",
+  );
+  html.push(
+    "        <div class=\"info\" id=\"info\">\n",
+    `          <a href="${getPath(docPath)}">当前页面链接</a>\n`,
+    "        </div>\n"
+  );
+  html.push(
+    "     </footer>\n",
+    "    </div>\n",
+    "  </body>\n",
+    "</html>\n",
+    `<!-- Page built by BUp v${getVersion()} at ${new Date().toISOString()}. -->`
+  );
+
+  return html.join("");
+};
+
+const writeUserPage = async (md, docDir, getPath, getURL) => {
+  const filePath = path.join(docDir, md["path"], "index.html");
   logger.debug(`Creating ${filePath}...`);
-  return await fsp.writeFile(filePath, renderPage(docPath, md, getPath, getURL), "utf8");
+  await fsp.writeFile(
+    filePath,
+    renderUserPage(md["path"], md, getPath, getURL),
+    "utf8"
+  );
+};
+
+const writeIndexPage = async (mds, docDir, getPath, getURL) => {
+  const filePath = path.join(docDir, "index.html");
+  logger.debug(`Creating ${filePath}...`);
+  await fsp.writeFile(
+    filePath,
+    renderIndexPage("/", mds, getPath, getURL),
+    "utf8"
+  );
+};
+
+const getFile = async (url, docDir, docPath) => {
+  logger.debug(`getFile(): ${url}`);
+  try {
+    const buffer = await get(url);
+    await fsp.writeFile(path.join(docDir, docPath), buffer);
+  } catch (error) {
+    // 下载失败了能咋办，不咋办呗，假装无事发生。
+    logger.error(error);
+  }
 };
 
 const build = async (mds, docDir, userDir, baseURL, rootDir) => {
   const fullUserDir = path.join(docDir, userDir);
+  const getPath = getPathFn(rootDir);
+  const getURL = getURLFn(baseURL, rootDir);
   if (mds.length === 0) {
     logger.log("Got no update.");
-    return;
+    process.exit(1);
   }
+
   logger.log(`Got updates from ${mds.map((md) => {
     return `${md["uid"]}(${md["name"]})`;
   }).join(", ")}.`);
   await Promise.all(mds.map(async (md) => {
-    await fsp.mkdir(path.join(fullUserDir, md["uid"]), {"recursive": true});
-    await saveJSON(path.join(fullUserDir, md["uid"], "index.json"), md);
+    try {
+      await fsp.mkdir(path.join(fullUserDir, md["uid"]), {"recursive": true});
+      // 叔叔不让我们直接外链引用图片啊，只能下载下来了，不要耽误叔叔赚钱。
+      await getFile(md["avatarURL"], docDir, md["avatar"]);
+      await Promise.all(md["videos"].map(async (video, i) => {
+	await getFile(video["thumbURL"], docDir, video["thumb"]);
+      }));
+      await saveJSON(path.join(fullUserDir, md["uid"], "index.json"), md);
+      await writeUserPage(md, docDir, getPath, getURL);
+    } catch (error) {
+      logger.error(error);
+    }
   }));
-  const getPath = getPathFn(rootDir);
-  const getURL = getURLFn(baseURL, rootDir);
-  await Promise.all(mds.map(async (md) => {
-    return await writeUserPage(md, docDir, userDir, getPath, getURL);
-  }));
+  try {
+    await writeIndexPage(mds, docDir, getPath, getURL);
+  } catch (error) {
+    logger.error(error);
+  }
 };
 
-const main = async () => {
-  await clean(uids, docDir, userDir);
-  const mds = await check(uids, docDir, userDir);
-  await build(mds, docDir, userDir, baseURL, rootDir);
+const bup = async (dir, opts) => {
+  logger = new Logger({"debug": opts["debug"], "color": opts["color"]});
+  const configPath = opts["config"] || path.join(dir, "config.json");
+  let config = null;
+  try {
+    config = await loadJSON(configPath);
+  } catch (error) {
+    logger.error(error);
+    process.exit(-1);
+  }
+  const {uids, docDir, userDir, baseURL, rootDir} = config;
+  const fullDocDir = path.join(dir, docDir);
+
+  await clean(uids, fullDocDir, userDir);
+  const mds = await check(uids, fullDocDir, userDir);
+  await build(mds, fullDocDir, userDir, baseURL, rootDir);
+  process.exit(0);
 };
 
-main();
+export default bup;
