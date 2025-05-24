@@ -206,52 +206,6 @@ const check = async (uids, docDir, userDir) => {
 };
 
 const renderUserPage = (docPath, md, getPath, getURL) => {
-  const html = [];
-  html.push(
-    "<!DOCTYPE html>\n",
-    "<html lang=\"zh-Hans\">\n",
-    "  <head>\n",
-    "    <meta charset=\"utf-8\">\n",
-    "    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n",
-    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=10\">\n"
-  );
-
-  // Open Graph.
-  html.push(
-    "    <meta property=\"og:site_name\" content=\"BUp\">\n",
-    `    <meta property="og:title" content="${md["name"]} - BUp">\n`,
-    "    <meta property=\"og:type\" content=\"website\">\n",
-    `    <meta property="og:url" content="${getURL(docPath)}">\n`
-  );
-  html.push(
-    `    <meta property="og:image" content="${getPath(md["avatar"])}">\n`
-  );
-  html.push(
-    `    <meta property="og:description" content="${md["name"]} - BUp">\n`
-  );
-  html.push(
-    `    <link rel="stylesheet" type="text/css" href="${getPath("css/normalize.css")}">\n`,
-    `    <link rel="stylesheet" type="text/css" href="${getPath("css/index.css")}">\n`,
-    `    <script type="text/javascript" src="${getPath("js/index.js")}"></script>\n`,
-    "    <script type=\"text/javascript\">\n",
-    "      documentReady(() => {\n",
-    `        document.getElementById("delta").innerText = countDateTime(${md["videos"][0]["created"]});\n`,
-    "        window.setInterval(() => {\n",
-    `          document.getElementById("delta").innerText = countDateTime(${md["videos"][0]["created"]});\n`,
-    "        }, 1000);\n",
-    "      });\n",
-    "    </script>\n",
-    `    <title>${md["name"]} - BUp</title>\n`,
-    "  </head>\n",
-    "  <body>\n",
-    "    <div class=\"container\">\n",
-    "      <header>\n"
-  );
-  html.push(
-    "        <div class=\"title\" id=\"title\">\n",
-    `          <div>亲爱的 <img class="avatar" src="${getPath(md["avatar"])}"> <a target="_blank" rel="external nofollow noreferrer noopener" href="https://space.bilibili.com/${md["uid"]}">${md["name"]}</a>：</div>\n`,
-    "        </div>\n"
-  );
   const formatter = new Intl.DateTimeFormat("zh-Hans", {
     "year": "numeric",
     "month": "2-digit",
@@ -269,7 +223,47 @@ const renderUserPage = (docPath, md, getPath, getURL) => {
   for (let {type, value} of parts) {
     obj[type] = value;
   }
+  const html = [];
+
   html.push(
+    "<!DOCTYPE html>\n",
+    "<html lang=\"zh-Hans\">\n",
+    "  <head>\n",
+    "    <meta charset=\"utf-8\">\n",
+    "    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n",
+    "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=10\">\n"
+  );
+
+  // Open Graph.
+  html.push(
+    "    <meta property=\"og:site_name\" content=\"BUp\">\n",
+    `    <meta property="og:title" content="${md["name"]} - BUp">\n`,
+    "    <meta property=\"og:type\" content=\"website\">\n",
+    `    <meta property="og:url" content="${getURL(docPath)}">\n`,
+    `    <meta property="og:image" content="${getPath(md["avatar"])}">\n`,
+    `    <meta property="og:description" content="${md["name"]} - BUp">\n`
+  );
+
+  html.push(
+    `    <link rel="stylesheet" type="text/css" href="${getPath("css/normalize.css")}">\n`,
+    `    <link rel="stylesheet" type="text/css" href="${getPath("css/index.css")}">\n`,
+    `    <script type="text/javascript" src="${getPath("js/index.js")}"></script>\n`,
+    "    <script type=\"text/javascript\">\n",
+    "      documentReady(() => {\n",
+    `        document.getElementById("delta").innerText = countDateTime(${md["videos"][0]["created"]});\n`,
+    "        window.setInterval(() => {\n",
+    `          document.getElementById("delta").innerText = countDateTime(${md["videos"][0]["created"]});\n`,
+    "        }, 1000);\n",
+    "      });\n",
+    "    </script>\n",
+    `    <title>${md["name"]} - BUp</title>\n`,
+    "  </head>\n",
+    "  <body>\n",
+    "    <div class=\"container\">\n",
+    "      <header>\n",
+    "        <div class=\"title\" id=\"title\">\n",
+    `          <div>亲爱的 <img class="avatar" src="${getPath(md["avatar"])}"> <a target="_blank" rel="external nofollow noreferrer noopener" href="https://space.bilibili.com/${md["uid"]}">${md["name"]}</a>：</div>\n`,
+    "        </div>\n",
     "      </header>\n",
     "      <main>\n",
     "        <div class=\"content\" id=\"content\">\n",
@@ -284,18 +278,12 @@ const renderUserPage = (docPath, md, getPath, getURL) => {
     `              <div class="video-created">${obj["year"]}-${obj["month"]}-${obj["day"]} ${obj["hour"]}:${obj["minute"]}:${obj["second"]}</div>\n`,
     "            </div>\n",
     "          </a>\n",
-    "        </div>\n"
-  );
-  html.push(
+    "        </div>\n",
     "      </main>\n",
     "      <footer>\n",
-  );
-  html.push(
     "        <div class=\"info\" id=\"info\">\n",
     `          <a href="${getPath(docPath)}">当前页面链接</a>\n`,
-    "        </div>\n"
-  );
-  html.push(
+    "        </div>\n",
     "     </footer>\n",
     "    </div>\n",
     "  </body>\n",
@@ -303,11 +291,12 @@ const renderUserPage = (docPath, md, getPath, getURL) => {
     `<!-- Page built by BUp v${getVersion()} at ${new Date().toISOString()}. -->`
   );
 
-  return html.join("");
+  return html.join('');
 };
 
 const renderIndexPage = (docPath, mds, getPath, getURL) => {
   const html = [];
+
   html.push(
     "<!DOCTYPE html>\n",
     "<html lang=\"zh-Hans\">\n",
@@ -322,11 +311,10 @@ const renderIndexPage = (docPath, mds, getPath, getURL) => {
     "    <meta property=\"og:site_name\" content=\"BUp\">\n",
     "    <meta property=\"og:title\" content=\"BUp\">\n",
     "    <meta property=\"og:type\" content=\"website\">\n",
-    `    <meta property="og:url" content="${getURL(docPath)}">\n`
-  );
-  html.push(
+    `    <meta property="og:url" content="${getURL(docPath)}">\n`,
     "    <meta property=\"og:description\" content=\"BUp\">\n"
   );
+
   html.push(
     `    <link rel="stylesheet" type="text/css" href="${getPath("css/normalize.css")}">\n`,
     `    <link rel="stylesheet" type="text/css" href="${getPath("css/index.css")}">\n`,
@@ -335,14 +323,10 @@ const renderIndexPage = (docPath, mds, getPath, getURL) => {
     "  </head>\n",
     "  <body>\n",
     "    <div class=\"container\">\n",
-    "      <header>\n"
-  );
-  html.push(
+    "      <header>\n",
     "        <div class=\"title\" id=\"title\">\n",
     "          <h1>BUp</h1>\n",
-    "        </div>\n"
-  );
-  html.push(
+    "        </div>\n",
     "      </header>\n",
     "      <main>\n",
     "        <div class=\"content\" id=\"content\">\n",
@@ -355,18 +339,12 @@ const renderIndexPage = (docPath, mds, getPath, getURL) => {
   }
   html.push(
     "          </ul>\n",
-    "        </div>\n"
-  );
-  html.push(
+    "        </div>\n",
     "      </main>\n",
     "      <footer>\n",
-  );
-  html.push(
     "        <div class=\"info\" id=\"info\">\n",
     `          <a href="${getPath(docPath)}">当前页面链接</a>\n`,
-    "        </div>\n"
-  );
-  html.push(
+    "        </div>\n",
     "     </footer>\n",
     "    </div>\n",
     "  </body>\n",
@@ -374,7 +352,7 @@ const renderIndexPage = (docPath, mds, getPath, getURL) => {
     `<!-- Page built by BUp v${getVersion()} at ${new Date().toISOString()}. -->`
   );
 
-  return html.join("");
+  return html.join('');
 };
 
 const writeUserPage = async (md, docDir, getPath, getURL) => {

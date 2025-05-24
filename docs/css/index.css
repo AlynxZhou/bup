@@ -59,8 +59,9 @@ ol, ul {
 }
 
 div.container {
-  width: 80%;
+  max-width: 100%;
   height: 100%;
+  width: 80em;
   padding: 0;
   margin: 0 auto;
 }
@@ -85,7 +86,7 @@ a.video {
   flex-direction: row;
   /* Never use `space-between` here, header and main cannot be splitted. */
   justify-content: flex-start;
-  align-items: stretch;
+  align-items: center;
   width: 100%;
 }
 
