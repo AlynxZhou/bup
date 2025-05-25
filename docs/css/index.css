@@ -107,7 +107,7 @@ a.video:hover {
 
 img.video-thumb {
   flex: 0 0 auto;
-  width: 5em;
+  width: 30%;
 }
 
 div.video-info {
