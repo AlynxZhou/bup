@@ -35,6 +35,14 @@ const isFunction = (o) => {
   return o instanceof Function;
 };
 
+const isBuffer = (o) => {
+  return Buffer.isBuffer(o);
+};
+
+const isString = (o) => {
+  return typeof (o) === "string" || o instanceof String;
+};
+ 
 const getPathFn = (rootDir = path.posix.sep) => {
   // Anyway, we need to escape backslash literally using RegExp.
   const winSepRegExp = new RegExp(`\\${path.win32.sep}`, "g");
@@ -73,11 +81,6 @@ const getURLFn = (baseURL, rootDir = path.posix.sep) => {
   };
 };
 
-/**
- * @param {String} url Target URL.
- * @param {Object} [headers]
- * @return {Promise<Buffer>}
- */
 const get = (url, headers = {}) => {
   const opts = {
     "method": "GET",
@@ -96,7 +99,12 @@ const get = (url, headers = {}) => {
 	chunks.push(chunk);
       });
       res.on("end", () => {
-	resolve(Buffer.concat(chunks));
+	const headers = [];
+	for (const [k, v] of Object.entries(res.headers)) {
+	  headers[k] = v;
+	}
+	const body = Buffer.concat(chunks);
+	resolve({headers, body});
       });
     });
     req.on("error", reject);
@@ -104,12 +112,12 @@ const get = (url, headers = {}) => {
   });
 };
 
-/**
- * @param {String} url Target URL.
- * @param {(String|Buffer|Object)} body Object will be JSON-serialized.
- * @param {Object} [headers]
- * @return {Promise<Buffer>}
- */
+const getJSON = (url, headers) => {
+  return get(url, headers).then(({headers, body}) => {
+    return {headers, "body": JSON.parse(body.toString("utf8"))};
+  });
+};
+
 const post = (url, body, headers = {}) => {
   const opts = {
     "method": "POST",
@@ -133,7 +141,12 @@ const post = (url, body, headers = {}) => {
 	chunks.push(chunk);
       });
       res.on("end", () => {
-	resolve(Buffer.concat(chunks));
+	const headers = [];
+	for (const [k, v] of Object.entries(res.headers)) {
+	  headers[k] = v;
+	}
+	const body = Buffer.concat(chunks);
+	resolve({headers, body});
       });
     });
     req.on("error", reject);
@@ -142,9 +155,9 @@ const post = (url, body, headers = {}) => {
   });
 };
 
-const getJSON = (url, headers = {}) => {
-  return get(url, headers).then((res) => {
-    return JSON.parse(res.toString("utf8"));
+const postJSON = (url, body, headers) => {
+  return post(url, body, headers).then(({headers, body}) => {
+    return {headers, "body": JSON.parse(body.toString("utf8"))};
   });
 };
 
@@ -168,11 +181,14 @@ export {
   saveJSON,
   saveJSONSync,
   isFunction,
+  isBuffer,
+  isString,
   getPathFn,
   getURLFn,
   get,
-  post,
   getJSON,
+  post,
+  postJSON,
   getRandomSample,
   getVersion
 };

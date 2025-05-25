@@ -3,5 +3,6 @@
   "userDir": "users",
   "baseURL": "YOUR SITE BASE URL",
   "rootDir": "YOUR SITE ROOT DIR",
+  "cookie": "COPY COOKIE FROM A PRIVATE BROWSER TAB",
   "uids": []
 }

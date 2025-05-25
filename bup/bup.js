@@ -1,130 +1,21 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
-import * as crypto from "node:crypto";
 import Logger from "./logger.js";
-import {
-  loadJSON,
-  saveJSON,
-  get,
-  getJSON,
-  getRandomSample,
-  getPathFn,
-  getURLFn,
-  getVersion
-} from "./utils.js";
+import BAPI from "./bapi.js";
+import {loadJSON, saveJSON, get, getPathFn, getURLFn, getVersion} from "./utils.js";
 
 let logger = null;
 
-// See <https://github.com/Nemo2011/bilibili-api/pull/680/files>.
-// 一个验证有没有用户操作的玩意，似乎随便丢点字符给他就过了。
-const dmSeed = "ABCDEFGHIJK".split('');
-
-const addDM = (params) => {
-  params.set("dm_img_list", "[]");
-  params.set("dm_img_str", getRandomSample(dmSeed, 2).join(''));
-  params.set("dm_cover_img_str", getRandomSample(dmSeed, 2).join(''));
-  params.set("dm_img_inter", "{\"ds\":[],\"wh\":[0,0,0],\"of\":[0,0,0]}");
-  return params;
-};
-
-// 一个奇怪的验证，需要从别的地方获取伪装成图片的 key 然后根据参数和时间进行编码。
-const getWBIKeys = async () => {
-  const res = await getJSON("https://api.bilibili.com/x/web-interface/nav", {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-    "Referer": "https://www.bilibili.com/"
-  });
-  logger.debug(`getWBIKeys(): ${JSON.stringify(res, null, "  ")}`);
-  const imgURL = res["data"]["wbi_img"]["img_url"];
-  const subURL = res["data"]["wbi_img"]["sub_url"];
-  return {
-    "img": imgURL.slice(imgURL.lastIndexOf('/') + 1, imgURL.lastIndexOf('.')),
-    "sub": subURL.slice(subURL.lastIndexOf('/') + 1, subURL.lastIndexOf('.'))
-  };
-};
-
-const mixinKeyEncodeTable = [
-  46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
-  33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
-  61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
-  36, 20, 34, 44, 52
-];
-
-// 对 img 和 sub 进行字符顺序打乱编码。
-const getMixinKey = (orig) => {
-  return mixinKeyEncodeTable.map((n) => {
-    return orig[n];
-  }).join('').slice(0, 32);
-};
-
-// 为请求参数进行 wbi 签名。
-const encodeWBI = (params, img, sub) => {
-  const mixinKey = getMixinKey(`${img}${sub}`);
-  const current = Math.round(Date.now() / 1000);
-
-  // 添加 wts 字段。
-  params.set("wts", current);
-  // 过滤 value 中的 "!'()*" 字符。
-  // 这段代码有点问题，显然我这里没有这些字符就不用了。
-  // params.forEach((key, value) => {
-  //   const newValue = value.replace(/[!'()*]/g, '');
-  //   return params.set(key, newValue);
-  // });
-  // 按照 key 重排参数。
-  params.sort();
-  logger.debug(`${params.toString()}`);
-
-  const wbi = crypto.createHash("md5")
-	.update(`${params.toString()}${mixinKey}`)
-	.digest("hex");
-
-  return `${params.toString()}&w_rid=${wbi}`;
-};
-
-const getUser = async (uid) => {
-  const {img, sub} = await getWBIKeys();
-  const params = new URLSearchParams({"mid": uid});
-  const url = `https://api.bilibili.com/x/space/wbi/acc/info?${encodeWBI(addDM(params), img, sub)}`;
-  logger.debug(`getUser(): ${url}`);
-
-  const res = await getJSON(url, {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-    "Cookie": "buvid3=00BA3F83-2A0A-C1D6-A984-8EE1E6AC62CF33288infoc; b_nut=1748014733;",
-    "Referer": `https://space.bilibili.com/${uid}`,
-    "Origin": "https://space.bilibili.com"
-  });
-  logger.debug(`getUser(): ${JSON.stringify(res, null, "  ")}`);
-  if (res["code"] !== 0) {
-    throw new Error(res["message"]);
+const downloadFile = async (url, docDir, docPath) => {
+  logger.debug(`downloadFile(): ${url}`);
+  try {
+    const {body} = await get(url);
+    await fsp.writeFile(path.join(docDir, docPath), body);
+  } catch (error) {
+    // 下载失败了能咋办，不咋办呗，假装无事发生。
+    logger.warn(error);
   }
-  return res["data"];
-};
-
-const getVideos = async (uid) => {
-  const {img, sub} = await getWBIKeys();
-  const params = new URLSearchParams({
-    "mid": uid,
-    "ps": 3,
-    "tid": 0,
-    "pn": 1,
-    "keyword": "",
-    "order": "pubdate",
-    "order_avoided": true
-  });
-  const url = `https://api.bilibili.com/x/space/wbi/arc/search?${encodeWBI(addDM(params), img, sub)}`;
-  logger.debug(`getVideos(): ${url}`);
-
-  const res = await getJSON(url, {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-    "Cookie": "buvid3=00BA3F83-2A0A-C1D6-A984-8EE1E6AC62CF33288infoc; b_nut=1748014733; ",
-    "Referer": `https://space.bilibili.com/${uid}/video`,
-    "Origin": "https://space.bilibili.com"
-  });
-  logger.debug(`getVideos(): ${JSON.stringify(res, null, "  ")}`);
-  if (res["code"] !== 0) {
-    throw new Error(res["message"]);
-  }
-  return res["data"]["list"]["vlist"];
 };
 
 const clean = async (uids, docDir, userDir) => {
@@ -154,6 +45,8 @@ const makeMetadata = (user, videos, userDir) => {
   return {
     "uid": uid,
     "name": user["name"],
+    // 最近一次检查的时候是否有更新。
+    "updated": false,
     "path": userPath,
     // 目前至少可以假设叔叔一定会给我们 JPG。
     "avatar": path.join(userPath, "avatar.jpg"),
@@ -171,38 +64,38 @@ const makeMetadata = (user, videos, userDir) => {
   };
 };
 
-const check = async (uids, docDir, userDir) => {
+const check = async (bAPI, uids, docDir, userDir) => {
   const fullUserDir = path.join(docDir, userDir);
-  const results = await Promise.all(uids.map(async (uid) => {
-    let newMD = null;
+  const mds = [];
+
+  // 这里当然可以并行请求，但是恐怕会被反爬风控，所以还是一个个来。
+  for (const uid of uids) {
+    let md = null;
     try {
-      const user = await getUser(uid);
-      const videos = await getVideos(uid);
-      newMD = makeMetadata(user, videos, userDir);
+      const user = await bAPI.getUser(uid);
+      const videos = await bAPI.getVideos(uid);
+      md = makeMetadata(user, videos, userDir);
     } catch (error) {
       // 爬取更新失败的话就假装无事发生。
-      logger.error(error);
-      return null;
+      logger.warn(error);
+      continue;
     }
 
     // UP 的最新视频变了，或者 UP 改名了，或者我们之前没给这个 UP 建档，都视为有更新。
-    let updated = false;
     try {
-      const md = await loadJSON(path.join(fullUserDir, uid, "index.json"));
-      if (newMD["videos"][0]["bvid"] !== md["videos"][0]["bvid"] ||
-	  newMD["name"] !== md["name"]) {
-        updated = true;
+      const old = await loadJSON(path.join(fullUserDir, uid, "index.json"));
+      if (md["videos"][0]["bvid"] !== old["videos"][0]["bvid"] ||
+	  md["name"] !== old["name"]) {
+        md["updated"] = true;
       }
     } catch (error) {
-      updated = true;
+      md["updated"] = true;
     }
 
-    return updated ? newMD : null;
-  }));
-  // 当然是只处理有更新的。
-  return results.filter((o) => {
-    return o != null;
-  });
+    mds.push(md);
+  }
+
+  return mds;
 };
 
 const renderUserPage = (docPath, md, getPath, getURL) => {
@@ -270,9 +163,7 @@ const renderUserPage = (docPath, md, getPath, getURL) => {
     "          <div>距离您上次更新视频已经过去 <span id=\"delta\"></span> 了。</div>\n",
     "          <div>您上次的投稿是：</div>\n",
     `          <a class="video" target="_blank" rel="external nofollow noreferrer noopener" href="https://www.bilibili.com/video/${md["videos"][0]["bvid"]}">\n`,
-    "            <div class=\"video-thumb\">\n",
-    `              <img src="${getPath(md["videos"][0]["thumb"])}">\n`,
-    "            </div>\n",
+    `            <img class=\"video-thumb\" src="${getPath(md["videos"][0]["thumb"])}">\n`,
     "            <div class=\"video-info\">\n",
     `              <div class="video-title">${md["videos"][0]["title"]}</div>\n`,
     `              <div class="video-created">${obj["year"]}-${obj["month"]}-${obj["day"]} ${obj["hour"]}:${obj["minute"]}:${obj["second"]}</div>\n`,
@@ -375,52 +266,45 @@ const writeIndexPage = async (mds, docDir, getPath, getURL) => {
   );
 };
 
-const getFile = async (url, docDir, docPath) => {
-  logger.debug(`getFile(): ${url}`);
-  try {
-    const buffer = await get(url);
-    await fsp.writeFile(path.join(docDir, docPath), buffer);
-  } catch (error) {
-    // 下载失败了能咋办，不咋办呗，假装无事发生。
-    logger.error(error);
-  }
-};
-
-const build = async (mds, docDir, userDir, baseURL, rootDir) => {
+const build = async (bAPI, mds, docDir, userDir, baseURL, rootDir) => {
   const fullUserDir = path.join(docDir, userDir);
   const getPath = getPathFn(rootDir);
   const getURL = getURLFn(baseURL, rootDir);
-  if (mds.length === 0) {
+  const updatedMDs = mds.filter((md) => {
+    return md["updated"];
+  });
+  if (updatedMDs.length === 0) {
     logger.log("Got no update.");
     process.exit(1);
   }
 
-  logger.log(`Got updates from ${mds.map((md) => {
+  logger.log(`Got updates from ${updatedMDs.map((md) => {
     return `${md["uid"]}(${md["name"]})`;
   }).join(", ")}.`);
-  await Promise.all(mds.map(async (md) => {
+  await Promise.all(updatedMDs.map(async (md) => {
     try {
       await fsp.mkdir(path.join(fullUserDir, md["uid"]), {"recursive": true});
       // 叔叔不让我们直接外链引用图片啊，只能下载下来了，不要耽误叔叔赚钱。
-      await getFile(md["avatarURL"], docDir, md["avatar"]);
-      await Promise.all(md["videos"].map(async (video, i) => {
-	await getFile(video["thumbURL"], docDir, video["thumb"]);
+      await downloadFile(md["avatarURL"], docDir, md["avatar"]);
+      await Promise.all(md["videos"].map(async (video) => {
+	await downloadFile(video["thumbURL"], docDir, video["thumb"]);
       }));
       await saveJSON(path.join(fullUserDir, md["uid"], "index.json"), md);
       await writeUserPage(md, docDir, getPath, getURL);
     } catch (error) {
-      logger.error(error);
+      logger.warn(error);
     }
   }));
   try {
     await writeIndexPage(mds, docDir, getPath, getURL);
   } catch (error) {
-    logger.error(error);
+    logger.warn(error);
   }
 };
 
 const bup = async (dir, opts) => {
   logger = new Logger({"debug": opts["debug"], "color": opts["color"]});
+
   const configPath = opts["config"] || path.join(dir, "config.json");
   let config = null;
   try {
@@ -429,12 +313,18 @@ const bup = async (dir, opts) => {
     logger.error(error);
     process.exit(-1);
   }
-  const {uids, docDir, userDir, baseURL, rootDir} = config;
+  const {uids, docDir, userDir, baseURL, rootDir, cookie} = config;
+  const suids = uids.map((uid) => {
+    return `${uid}`;
+  });
   const fullDocDir = path.join(dir, docDir);
 
-  await clean(uids, fullDocDir, userDir);
-  const mds = await check(uids, fullDocDir, userDir);
-  await build(mds, fullDocDir, userDir, baseURL, rootDir);
+  const bAPI = new BAPI(logger, cookie);
+  await bAPI.init();
+
+  await clean(suids, fullDocDir, userDir);
+  const mds = await check(bAPI, suids, fullDocDir, userDir);
+  await build(bAPI, mds, fullDocDir, userDir, baseURL, rootDir);
   process.exit(0);
 };
 
