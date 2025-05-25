@@ -221,7 +221,7 @@ const renderIndexPage = (docPath, mds, getPath, getURL) => {
     "      </header>\n",
     "      <main>\n",
     "        <div class=\"content\" id=\"content\">\n",
-    "          <ul>\n"
+    "          <ul class=\"users\">\n"
   );
   for (const md of mds) {
     html.push(

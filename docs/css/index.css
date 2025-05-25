@@ -81,6 +81,10 @@ div.content {
   padding: 1em;
 }
 
+ul.users {
+  font-size: 2rem;
+}
+
 img.avatar {
   width: 2em;
   border-radius: 50%;
