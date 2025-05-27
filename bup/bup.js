@@ -41,7 +41,7 @@ const clean = async (uids, docDir, userDir) => {
 
 const makeMetadata = (user, videos, userDir) => {
   const uid = `${user["mid"]}`;
-  const userPath = path.join(userDir, uid);
+  const userPath = path.join(userDir, uid, path.sep);
   return {
     "uid": uid,
     "name": user["name"],
@@ -223,11 +223,11 @@ const renderIndexPage = (docPath, mds, getPath, getURL) => {
     "        <div class=\"content\" id=\"content\">\n",
     "          <ul class=\"users\">\n"
   );
-  for (const md of mds) {
-    html.push(
-      `            <li><a href=${getPath(md["path"])}>${md["name"]}</a></li>\n`
-    );
-  }
+  html.push(...mds.sort((a, b) => {
+    return -(a["videos"][0]["created"] - b["videos"][0]["created"]);
+  }).map((md) => {
+    return `            <li><a href=${getPath(md["path"])}>${md["name"]}</a></li>\n`;
+  }));
   html.push(
     "          </ul>\n",
     "        </div>\n",
