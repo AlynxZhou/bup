@@ -1,7 +1,10 @@
 import * as crypto from "node:crypto";
+import * as timersp from "node:timers/promises";
 import {get, getJSON, postJSON, getRandomSample} from "./utils.js";
 
-const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3";
+// 实在不知道假装成什么的时候就假装成 macOS 上的 Chrome 就好了！我猜他们开发就是
+// 这种环境！
+const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
 
 const mixinKeyEncodeTable = [
   46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
@@ -49,18 +52,28 @@ const addDM = (params) => {
   return params;
 };
 
+const randomInt = (min, max) => {
+  if (min > max) {
+    [min, max] = [max, min];
+  }
+  return Math.floor(min + Math.random() * (max - min));
+};
+
 class BAPI {
-  constructor(logger, cookie) {
+  constructor(logger, opts = {}) {
     this.logger = logger;
     this.img = null;
     this.sub = null;
     this.biliTicket = null;
-    this.cookie = cookie || "";
+    this.cookie = opts["cookie"] || "";
+    this.userAgent = opts["userAgent"] || userAgent;
+    this.maxDelay = 0;
   }
 
   async init() {
     try {
-      // FIXME: 好像每次获取新的 cookie 更容易被风控。评价为这俩都没啥用不如浏览器隐身模式复制一个。
+      // FIXME: 好像每次获取新的 cookie 更容易被风控。评价为这俩都没啥用不如浏览
+      // 器隐身模式复制一个。而且似乎 cookie 和 UA 匹配才不容易被风控。
       // await this.initCookie();
       // await this.initBiliTicket();
       if (this.biliTicket != null) {
@@ -76,7 +89,7 @@ class BAPI {
 
   // 希望能让叔叔觉得我们是个人畜无害的普通用户。
   async initCookie() {
-    const {headers} = await get("https://www.bilibili.com/", {"User-Agent": userAgent});
+    const {headers} = await get("https://www.bilibili.com/", {"User-Agent": this.userAgent});
     if (headers["set-cookie"] == null) {
       return;
     }
@@ -92,7 +105,7 @@ class BAPI {
   // 一个奇怪的验证，需要从别的地方获取伪装成图片的 key 然后根据参数和时间进行编码。
   async initWBIKeys() {
     const {body} = await getJSON("https://api.bilibili.com/x/web-interface/nav", {
-      "User-Agent": userAgent,
+      "User-Agent": this.userAgent,
       "Referer": "https://www.bilibili.com/"
     });
     this.logger.debug(`initWBIKeys(): ${JSON.stringify(body, null, "  ")}`);
@@ -118,7 +131,7 @@ class BAPI {
     });
     const url = `https://api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket?${params.toString()}`;
     const {body} = await postJSON(url, null, {
-      "User-Agent": userAgent,
+      "User-Agent": this.userAgent,
       "Referer": "https://www.bilibili.com/"
     });
     if (body["code"] !== 0) {
@@ -129,13 +142,29 @@ class BAPI {
     this.biliTicket = body["data"]["ticket"];
   }
 
+  setMaxDelay(maxDelay) {
+    if (maxDelay >= 0) {
+      this.maxDelay = maxDelay;
+    }
+  }
+
+  getMaxDelay() {
+    return this.maxDelay;
+  }
+
   async getUser(uid) {
+    if (this.maxDelay > 0) {
+      const delay = randomInt(0, this.maxDelay);
+      this.logger.debug(`getUser(): Waiting ${delay} ms to avoid banning...`);
+      await timersp.setTimeout(delay);
+    }
+
     const params = new URLSearchParams({"mid": uid});
     const url = `https://api.bilibili.com/x/space/wbi/acc/info?${encodeWBI(addDM(params), this.img, this.sub)}`;
     this.logger.debug(`getUser(): ${url}`);
 
     const {body} = await getJSON(url, {
-      "User-Agent": userAgent,
+      "User-Agent": this.userAgent,
       "Cookie": this.cookie,
       "Referer": `https://space.bilibili.com/${uid}`,
       "Origin": "https://space.bilibili.com"
@@ -148,6 +177,12 @@ class BAPI {
   }
 
   async getVideos(uid) {
+    if (this.maxDelay > 0) {
+      const delay = randomInt(0, this.maxDelay);
+      this.logger.debug(`getVideos(): Waiting ${delay} ms to avoid banning...`);
+      await timersp.setTimeout(delay);
+    }
+
     const params = new URLSearchParams({
       "mid": uid,
       "ps": 3,
@@ -161,7 +196,7 @@ class BAPI {
     this.logger.debug(`getVideos(): ${url}`);
 
     const {body} = await getJSON(url, {
-      "User-Agent": userAgent,
+      "User-Agent": this.userAgent,
       "Cookie": this.cookie,
       "Referer": `https://space.bilibili.com/${uid}/video`,
       "Origin": "https://space.bilibili.com"

@@ -3,7 +3,14 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import Logger from "./logger.js";
 import BAPI from "./bapi.js";
-import {loadJSON, saveJSON, get, getPathFn, getURLFn, getVersion} from "./utils.js";
+import {
+  loadJSON,
+  saveJSON,
+  get,
+  getPathFn,
+  getURLFn,
+  getVersion
+} from "./utils.js";
 
 let logger = null;
 
@@ -78,21 +85,31 @@ const check = async (bAPI, uids, docDir, userDir) => {
     } catch (error) {
       // 爬取更新失败的话就假装无事发生。
       logger.warn(error);
-      continue;
     }
 
-    // UP 的最新视频变了，或者 UP 改名了，或者我们之前没给这个 UP 建档，都视为有更新。
+    let old = null;
     try {
       const old = await loadJSON(path.join(fullUserDir, uid, "index.json"));
-      if (md["videos"][0]["bvid"] !== old["videos"][0]["bvid"] ||
-	  md["name"] !== old["name"]) {
-        md["updated"] = true;
-      }
     } catch (error) {
-      md["updated"] = true;
+      // 新添加的 UP 本地没有档案也正常嘛。
     }
 
-    mds.push(md);
+    if (md == null) {
+      // 没爬到的 UP 就用本地档案，我们需要这个来渲染首页。总不会倒霉到本地也没
+      // 有，然后第一次爬也失败吧。
+      if (old != null) {
+	mds.push(old);
+      }
+    } else {
+      // 如果本地没给 UP 建档，或者最新的视频有变化，或者 UP 改名了，都视为有更
+      // 新。头像就不管了因为我们不知道 CDN 链接是否可靠。改名不会影响首页排序，
+      // 因为我们是按照最新视频的创建时间排序。
+      if (old == null || md["videos"][0]["bvid"] !== old["videos"][0]["bvid"] ||
+	  md["name"] !== old["name"]) {
+	md["updated"] = true;
+      }
+      mds.push(md);
+    }
   }
 
   return mds;
@@ -313,14 +330,15 @@ const bup = async (dir, opts) => {
     logger.error(error);
     process.exit(-1);
   }
-  const {uids, docDir, userDir, baseURL, rootDir, cookie} = config;
+  const {uids, docDir, userDir, baseURL, rootDir, cookie, userAgent} = config;
   const suids = uids.map((uid) => {
     return `${uid}`;
   });
   const fullDocDir = path.join(dir, docDir);
 
-  const bAPI = new BAPI(logger, cookie);
+  const bAPI = new BAPI(logger, {cookie, userAgent});
   await bAPI.init();
+  bAPI.setMaxDelay(1000);
 
   await clean(suids, fullDocDir, userDir);
   const mds = await check(bAPI, suids, fullDocDir, userDir);
