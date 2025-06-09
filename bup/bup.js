@@ -52,8 +52,6 @@ const makeMetadata = (user, videos, userDir) => {
   return {
     "uid": uid,
     "name": user["name"],
-    // 最近一次检查的时候是否有更新。
-    "updated": false,
     "path": userPath,
     // 目前至少可以假设叔叔一定会给我们 JPG。
     "avatar": path.join(userPath, "avatar.jpg"),
@@ -90,28 +88,24 @@ const check = async (bAPI, uids, docDir, userDir) => {
     let old = null;
     try {
       old = await loadJSON(path.join(fullUserDir, uid, "index.json"));
+      // 没爬到的 UP 就用本地档案，我们需要这个来渲染首页。
+      md = md || old;
     } catch (error) {
       // 新添加的 UP 本地没有档案也正常嘛。
     }
 
+    // 真的倒霉到第一次爬取这个 UP 就失败啊！
     if (md == null) {
-      // 没爬到的 UP 就用本地档案，我们需要这个来渲染首页。总不会倒霉到本地也没
-      // 有，然后第一次爬也失败吧。
-      if (old != null) {
-	// 永远不要相信本地档案里的 updated 哦！这个只在运行时有意义。
-	old["updated"] = false;
-	mds.push(old);
-      }
-    } else {
-      // 如果本地没给 UP 建档，或者最新的视频有变化，或者 UP 改名了，都视为更新
-      // 了。头像就不管了因为我们不知道 CDN 链接是否可靠。改名不会影响首页排序，
-      // 因为我们是按照最新视频的创建时间排序。
-      if (old == null || md["videos"][0]["bvid"] !== old["videos"][0]["bvid"] ||
-	  md["name"] !== old["name"]) {
-	md["updated"] = true;
-      }
-      mds.push(md);
+      continue;
     }
+
+    // 如果本地没给 UP 建档，或者最新的视频有变化，或者 UP 改名了，都视为更新
+    // 了。改名不会影响首页排序，因为我们是按照最新视频的创建时间排序。头像就不
+    // 管了因为我们不知道 CDN 链接是否可靠。
+    md["updated"] = (old == null ||
+		     md["videos"][0]["bvid"] !== old["videos"][0]["bvid"] ||
+		     md["name"] !== old["name"]);
+    mds.push(md);
   }
 
   return mds;
@@ -340,7 +334,7 @@ const bup = async (dir, opts) => {
 
   const bAPI = new BAPI(logger, {cookie, userAgent});
   await bAPI.init();
-  bAPI.setMaxDelay(1000);
+  bAPI.setDelay(1000, 1500);
 
   await clean(suids, fullDocDir, userDir);
   const mds = await check(bAPI, suids, fullDocDir, userDir);

@@ -67,6 +67,7 @@ class BAPI {
     this.biliTicket = null;
     this.cookie = opts["cookie"] || "";
     this.userAgent = opts["userAgent"] || userAgent;
+    this.minDelay = 0;
     this.maxDelay = 0;
   }
 
@@ -142,19 +143,19 @@ class BAPI {
     this.biliTicket = body["data"]["ticket"];
   }
 
-  setMaxDelay(maxDelay) {
-    if (maxDelay >= 0) {
-      this.maxDelay = maxDelay;
+  setDelay(min, max) {
+    min = Math.max(0, min);
+    max = Math.max(0, max);
+    if (min > max) {
+      [min, max] = [max, min];
     }
-  }
-
-  getMaxDelay() {
-    return this.maxDelay;
+    this.minDelay = min;
+    this.maxDelay = max;
   }
 
   async getUser(uid) {
-    if (this.maxDelay > 0) {
-      const delay = randomInt(0, this.maxDelay);
+    if (this.maxDelay !== 0) {
+      const delay = randomInt(this.minDelay, this.maxDelay);
       this.logger.debug(`getUser(): Waiting ${delay} ms to avoid banning...`);
       await timersp.setTimeout(delay);
     }
@@ -177,8 +178,8 @@ class BAPI {
   }
 
   async getVideos(uid) {
-    if (this.maxDelay > 0) {
-      const delay = randomInt(0, this.maxDelay);
+    if (this.maxDelay !== 0) {
+      const delay = randomInt(this.minDelay, this.maxDelay);
       this.logger.debug(`getVideos(): Waiting ${delay} ms to avoid banning...`);
       await timersp.setTimeout(delay);
     }
