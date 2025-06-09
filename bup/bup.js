@@ -89,7 +89,7 @@ const check = async (bAPI, uids, docDir, userDir) => {
 
     let old = null;
     try {
-      const old = await loadJSON(path.join(fullUserDir, uid, "index.json"));
+      old = await loadJSON(path.join(fullUserDir, uid, "index.json"));
     } catch (error) {
       // 新添加的 UP 本地没有档案也正常嘛。
     }
@@ -98,11 +98,13 @@ const check = async (bAPI, uids, docDir, userDir) => {
       // 没爬到的 UP 就用本地档案，我们需要这个来渲染首页。总不会倒霉到本地也没
       // 有，然后第一次爬也失败吧。
       if (old != null) {
+	// 永远不要相信本地档案里的 updated 哦！这个只在运行时有意义。
+	old["updated"] = false;
 	mds.push(old);
       }
     } else {
-      // 如果本地没给 UP 建档，或者最新的视频有变化，或者 UP 改名了，都视为有更
-      // 新。头像就不管了因为我们不知道 CDN 链接是否可靠。改名不会影响首页排序，
+      // 如果本地没给 UP 建档，或者最新的视频有变化，或者 UP 改名了，都视为更新
+      // 了。头像就不管了因为我们不知道 CDN 链接是否可靠。改名不会影响首页排序，
       // 因为我们是按照最新视频的创建时间排序。
       if (old == null || md["videos"][0]["bvid"] !== old["videos"][0]["bvid"] ||
 	  md["name"] !== old["name"]) {
@@ -301,12 +303,12 @@ const build = async (bAPI, mds, docDir, userDir, baseURL, rootDir) => {
   await Promise.all(updatedMDs.map(async (md) => {
     try {
       await fsp.mkdir(path.join(fullUserDir, md["uid"]), {"recursive": true});
+      await saveJSON(path.join(fullUserDir, md["uid"], "index.json"), md);
       // 叔叔不让我们直接外链引用图片啊，只能下载下来了，不要耽误叔叔赚钱。
       await downloadFile(md["avatarURL"], docDir, md["avatar"]);
       await Promise.all(md["videos"].map(async (video) => {
 	await downloadFile(video["thumbURL"], docDir, video["thumb"]);
       }));
-      await saveJSON(path.join(fullUserDir, md["uid"], "index.json"), md);
       await writeUserPage(md, docDir, getPath, getURL);
     } catch (error) {
       logger.warn(error);
