@@ -73,12 +73,12 @@ div.container {
 
 div.title {
   font-size: 2rem;
-  padding: 1em;
+  padding: 0 1em;
 }
 
 div.content {
   font-size: 3rem;
-  padding: 1em;
+  padding: 0 1em;
 }
 
 ul.users {

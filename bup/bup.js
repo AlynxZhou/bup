@@ -239,7 +239,7 @@ const renderIndexPage = (docPath, mds, getPath, getURL) => {
   html.push(...mds.sort((a, b) => {
     return -(a["videos"][0]["created"] - b["videos"][0]["created"]);
   }).map((md) => {
-    return `            <li><a href=${getPath(md["path"])}>${md["name"]}</a></li>\n`;
+    return `            <li><a href="${getPath(md["path"])}">${md["name"]}</a></li>\n`;
   }));
   html.push(
     "          </ul>\n",
