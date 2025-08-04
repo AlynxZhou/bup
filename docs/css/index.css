@@ -41,72 +41,123 @@ html {
 }
 
 body {
-  display: flex;
-  flex-direction: column;
-  /* Never use `space-between` here, header and main cannot be splitted. */
-  justify-content: flex-start;
-  align-items: stretch;
-  width: 100%;
-  height: 100%;
-  /* Take the whole browser window, this is required for Holy Grail. */
-  min-height: 100vh;
-  overflow: auto;
-  scroll-behavior: smooth;
-  color: #111;
-  background: #efefef;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 1rem;
+  line-height: 1.5;
+  background-color: #f0f2f5;
+  color: #333;
 }
 
-ol, ul {
-  padding-left: 2em;
+a {
+  color: #1855a2;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
 
 div.container {
-  max-width: 100%;
-  /* height: 100vh; */
-  width: 100em;
-  padding: 0.5em;
   margin: 0 auto;
-  background: #f5f5f5;
-  box-shadow: 0 0 1em 0.5em rgba(0, 0, 0, 0.19);
-  border-radius: 0.5em;
+  max-width: 50em;
+  padding: 0 1em;
 }
 
-div.title {
-  font-size: 2rem;
-  padding: 0 1em;
+header {
+  color: #555;
+  padding: 1em 0;
+}
+
+header h1 {
+  font-size: 2.5rem;
+  text-align: center;
+  margin: 0;
+}
+
+footer div.info {
+  font-size: 1rem;
+  text-align: center;
 }
 
 div.content {
-  font-size: 3rem;
-  padding: 0 1em;
+  font-size: 1rem;
+  padding: 1em;
 }
 
-ul.users {
-  font-size: 2rem;
+ul.ups {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
 }
 
-img.avatar {
-  width: 2em;
+a.up {
+  position: relative;
+  display: flex;
+  font-size: 1.25rem;
+  margin: 0.25em auto;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  color: #333;
+  background-color: #f7f7f7;
+  border: 0.1em solid #ddd;
+  border-radius: 0.5em;
+  overflow: hidden;
+  text-decoration: none;
+  transition: box-shadow 0.3s ease-in-out;
+}
+
+a.up:hover {
+  box-shadow: 0 0 1em 0.5em rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+}
+
+a.up:active {
+  top: 0.1em;
+}
+
+a.up img.avatar {
+  border-radius: 0;
+  flex: 0 0 auto;
+  width: 5em;
+}
+
+a.up span.name {
+  flex: 1 1 auto;
+  font-size: 1rem;
+  padding: 1em;
+}
+
+div.title img.avatar {
+  width: 3em;
   border-radius: 50%;
 }
 
 a.video {
-  margin: 1em auto;
+  position: relative;
   display: flex;
+  margin: 1em auto;
   flex-direction: row;
   justify-content: flex-start;
   align-items: stretch;
   text-decoration: none;
-  background: #fefefe;
   color: #333;
+  background-color: #f7f7f7;
+  border: 0.1em solid #ddd;
   border-radius: 0.5em;
   overflow: hidden;
-  /* box-shadow: 0 0 1em 0.5em rgba(0, 0, 0, 0.19); */
   transition: box-shadow 0.3s ease-in-out;
 }
 
 a.video:hover {
-  box-shadow: 0 0 1em 0.5em rgba(0, 0, 0, 0.19);
+  box-shadow: 0 0 1em 0.5em rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+}
+
+a.video:active {
+  top: 0.1em;
 }
 
 img.video-thumb {
@@ -116,7 +167,7 @@ img.video-thumb {
 
 div.video-info {
   flex: 1 1 auto;
-  font-size: 2rem;
+  font-size: 1rem;
   padding: 1em;
 }
 
@@ -126,6 +177,7 @@ div.video-title {
 
 div.video-created {
   font-size: 1rem;
+  color: #888;
 }
 
 div.info {
