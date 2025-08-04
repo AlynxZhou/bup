@@ -108,6 +108,16 @@ const check = async (bAPI, uids, docDir, userDir) => {
     mds.push(md);
   }
 
+  const updatedMDs = mds.filter((md) => {
+    return md["updated"];
+  });
+  if (updatedMDs.length === 0) {
+    logger.log("Got no update.");
+  } else {
+    logger.log(`Got updates from ${updatedMDs.map((md) => {
+      return `${md["uid"]}(${md["name"]})`;
+    }).join(", ")}.`);
+  }
   return mds;
 };
 
@@ -234,12 +244,12 @@ const renderIndexPage = (docPath, mds, getPath, getURL) => {
     "      </header>\n",
     "      <main>\n",
     "        <div class=\"content\" id=\"content\">\n",
-    "          <ul class=\"users\">\n"
+    "          <ul class=\"ups\">\n"
   );
   html.push(...mds.sort((a, b) => {
     return -(a["videos"][0]["created"] - b["videos"][0]["created"]);
   }).map((md) => {
-    return `            <li><a href="${getPath(md["path"])}">${md["name"]}</a></li>\n`;
+    return `            <li><a class="up" href="${getPath(md["path"])}"><img class="avatar" src="${getPath(md["avatar"])}"> <span class="name">${md["name"]}</span></a></li>\n`;
   }));
   html.push(
     "          </ul>\n",
@@ -279,21 +289,17 @@ const writeIndexPage = async (mds, docDir, getPath, getURL) => {
   );
 };
 
-const build = async (bAPI, mds, docDir, userDir, baseURL, rootDir) => {
+const build = async (bAPI, mds, docDir, userDir, baseURL, rootDir, opts = {}) => {
   const fullUserDir = path.join(docDir, userDir);
   const getPath = getPathFn(rootDir);
   const getURL = getURLFn(baseURL, rootDir);
-  const updatedMDs = mds.filter((md) => {
+  const updatedMDs = opts["build"] ? mds : mds.filter((md) => {
     return md["updated"];
   });
   if (updatedMDs.length === 0) {
-    logger.log("Got no update.");
     process.exit(1);
   }
 
-  logger.log(`Got updates from ${updatedMDs.map((md) => {
-    return `${md["uid"]}(${md["name"]})`;
-  }).join(", ")}.`);
   await Promise.all(updatedMDs.map(async (md) => {
     try {
       await fsp.mkdir(path.join(fullUserDir, md["uid"]), {"recursive": true});
@@ -338,7 +344,7 @@ const bup = async (dir, opts) => {
 
   await clean(suids, fullDocDir, userDir);
   const mds = await check(bAPI, suids, fullDocDir, userDir);
-  await build(bAPI, mds, fullDocDir, userDir, baseURL, rootDir);
+  await build(bAPI, mds, fullDocDir, userDir, baseURL, rootDir, opts);
   process.exit(0);
 };
 

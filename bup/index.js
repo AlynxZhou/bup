@@ -12,6 +12,7 @@ command
   .option("-d, --debug", "Enable debug output.")
   .option("-c, --config <json>", "Alternative config path.")
   .option("-C, --no-color", "Disable colored output.")
+  .option("-b, --build", "Always build web pages.")
   .helpOption("-h, --help", "Print help information.")
   .action((dir, opts) => {
     bup(dir || ".", opts);
